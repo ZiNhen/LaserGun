@@ -49,6 +49,8 @@ extern "C" {
 
 /* USER CODE END EM */
 
+void HAL_TIM_MspPostInit(TIM_HandleTypeDef *htim);
+
 /* Exported functions prototypes ---------------------------------------------*/
 void Error_Handler(void);
 
@@ -67,6 +69,8 @@ void Error_Handler(void);
 #define LASER_TRIGGER_EXTI_IRQn EXTI15_10_IRQn
 #define VIBRATION_MOTOR_Pin GPIO_PIN_14
 #define VIBRATION_MOTOR_GPIO_Port GPIOB
+#define SPEAKER_Pin GPIO_PIN_15
+#define SPEAKER_GPIO_Port GPIOB
 
 /* USER CODE BEGIN Private defines */
 
