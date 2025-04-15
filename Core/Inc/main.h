@@ -59,6 +59,8 @@ void Error_Handler(void);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
+#define OUT_OF_AMMO_Pin GPIO_PIN_13
+#define OUT_OF_AMMO_GPIO_Port GPIOC
 #define LASER_Pin GPIO_PIN_1
 #define LASER_GPIO_Port GPIOA
 #define MODE_TRIGGER_Pin GPIO_PIN_12
@@ -69,8 +71,11 @@ void Error_Handler(void);
 #define LASER_TRIGGER_EXTI_IRQn EXTI15_10_IRQn
 #define VIBRATION_MOTOR_Pin GPIO_PIN_14
 #define VIBRATION_MOTOR_GPIO_Port GPIOB
+#define RELOAD_TRIGGER_Pin GPIO_PIN_15
+#define RELOAD_TRIGGER_GPIO_Port GPIOB
+#define RELOAD_TRIGGER_EXTI_IRQn EXTI15_10_IRQn
 #define SPEAKER_Pin GPIO_PIN_15
-#define SPEAKER_GPIO_Port GPIOB
+#define SPEAKER_GPIO_Port GPIOA
 
 /* USER CODE BEGIN Private defines */
 

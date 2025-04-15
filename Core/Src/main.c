@@ -41,6 +41,8 @@
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
+I2C_HandleTypeDef hi2c2;
+
 TIM_HandleTypeDef htim1;
 TIM_HandleTypeDef htim2;
 TIM_HandleTypeDef htim3;
@@ -48,7 +50,8 @@ DMA_HandleTypeDef hdma_tim3_ch4_up;
 
 /* USER CODE BEGIN PV */
 int mode = 0;
-
+int bullets = 30;
+bool out_of_ammo = false;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -58,6 +61,7 @@ static void MX_DMA_Init(void);
 static void MX_TIM1_Init(void);
 static void MX_TIM2_Init(void);
 static void MX_TIM3_Init(void);
+static void MX_I2C2_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -65,7 +69,7 @@ static void MX_TIM3_Init(void);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 //Kich hoat am thanh
-void PlaySound()
+void PlaySound(const uint8_t audio_data[],const uint32_t audio_length)
 {
 	HAL_DMA_Abort_IT(&hdma_tim3_ch4_up);
 	HAL_DMA_Start_IT(&hdma_tim3_ch4_up,(uint32_t)(audio_data+44),(uint32_t)&(TIM2->CCR1), audio_length);
@@ -101,37 +105,63 @@ void vibrate(int ms){
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
 	if (GPIO_Pin == LASER_TRIGGER_Pin){
-		switch (mode){
-		  case 0:
-			  HAL_GPIO_TogglePin(LASER_GPIO_Port, LASER_Pin);
-			  PlaySound();
-			  vibrate(50);
-			  HAL_GPIO_TogglePin(LASER_GPIO_Port, LASER_Pin);
-			  break;
-		  case 1:
-			  //Mode 2: auto shot
-			  while(HAL_GPIO_ReadPin(LASER_TRIGGER_GPIO_Port, LASER_TRIGGER_Pin) == 1){
+		if(!out_of_ammo){
+			switch (mode){
+			  case 0:
 				  HAL_GPIO_TogglePin(LASER_GPIO_Port, LASER_Pin);
-				  PlaySound();
+				  PlaySound(shoot_sound, shoot_sound_length);
 				  vibrate(50);
 				  HAL_GPIO_TogglePin(LASER_GPIO_Port, LASER_Pin);
-				  Timer_Delay_ms(50);
-			  }
-			  break;
-		  case 2:
-			  //Mode 3: burst
-			  for (int i = 0; i < 3; i++){
-				  HAL_GPIO_TogglePin(LASER_GPIO_Port, LASER_Pin);
-				  PlaySound();
-				  vibrate(50);
-				  HAL_GPIO_TogglePin(LASER_GPIO_Port, LASER_Pin);
-				  Timer_Delay_ms(50);
-			  }
+				  if (--bullets == 0){
+					  out_of_ammo = true;
+					  HAL_GPIO_TogglePin(OUT_OF_AMMO_GPIO_Port, OUT_OF_AMMO_Pin);
+				  }
+				  break;
+			  case 1:
+				  //Mode 2: auto shot
+				  while(HAL_GPIO_ReadPin(LASER_TRIGGER_GPIO_Port, LASER_TRIGGER_Pin) == 1){
+					  HAL_GPIO_TogglePin(LASER_GPIO_Port, LASER_Pin);
+					  PlaySound(shoot_sound, shoot_sound_length);
+					  vibrate(50);
+					  HAL_GPIO_TogglePin(LASER_GPIO_Port, LASER_Pin);
+					  Timer_Delay_ms(50);
+					  if (--bullets == 0){
+						  out_of_ammo = true;
+						  HAL_GPIO_TogglePin(OUT_OF_AMMO_GPIO_Port, OUT_OF_AMMO_Pin);
+						  break;
+					  }
+				  }
+				  break;
+			  case 2:
+				  //Mode 3: burst
+				  for (int i = 0; i < 3; i++){
+					  HAL_GPIO_TogglePin(LASER_GPIO_Port, LASER_Pin);
+					  PlaySound(shoot_sound, shoot_sound_length);
+					  vibrate(50);
+					  HAL_GPIO_TogglePin(LASER_GPIO_Port, LASER_Pin);
+					  Timer_Delay_ms(50);
+					  if (--bullets == 0){
+						  out_of_ammo = true;
+						  HAL_GPIO_TogglePin(OUT_OF_AMMO_GPIO_Port, OUT_OF_AMMO_Pin);
+						  break;
+					  }
+				  }
+			}
 		}
+
 	}
 	else if (GPIO_Pin == MODE_TRIGGER_Pin){
 		  mode++;
 		  if (mode > 2) mode = 0;
+	}
+	else if (GPIO_Pin == RELOAD_TRIGGER_Pin){
+		if (out_of_ammo){
+			bullets = 30;
+			HAL_GPIO_TogglePin(OUT_OF_AMMO_GPIO_Port, OUT_OF_AMMO_Pin);
+			out_of_ammo = false;
+			PlaySound(reload_sound, reload_sound_length);
+			vibrate(1000);
+		}
 	}
 	else{
 		__NOP();
@@ -171,6 +201,7 @@ int main(void)
   MX_TIM1_Init();
   MX_TIM2_Init();
   MX_TIM3_Init();
+  MX_I2C2_Init();
   /* USER CODE BEGIN 2 */
 
   /* USER CODE END 2 */
@@ -220,6 +251,40 @@ void SystemClock_Config(void)
   {
     Error_Handler();
   }
+}
+
+/**
+  * @brief I2C2 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_I2C2_Init(void)
+{
+
+  /* USER CODE BEGIN I2C2_Init 0 */
+
+  /* USER CODE END I2C2_Init 0 */
+
+  /* USER CODE BEGIN I2C2_Init 1 */
+
+  /* USER CODE END I2C2_Init 1 */
+  hi2c2.Instance = I2C2;
+  hi2c2.Init.ClockSpeed = 400000;
+  hi2c2.Init.DutyCycle = I2C_DUTYCYCLE_2;
+  hi2c2.Init.OwnAddress1 = 0;
+  hi2c2.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
+  hi2c2.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
+  hi2c2.Init.OwnAddress2 = 0;
+  hi2c2.Init.GeneralCallMode = I2C_GENERALCALL_DISABLE;
+  hi2c2.Init.NoStretchMode = I2C_NOSTRETCH_DISABLE;
+  if (HAL_I2C_Init(&hi2c2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN I2C2_Init 2 */
+
+  /* USER CODE END I2C2_Init 2 */
+
 }
 
 /**
@@ -401,15 +466,26 @@ static void MX_GPIO_Init(void)
 /* USER CODE END MX_GPIO_Init_1 */
 
   /* GPIO Ports Clock Enable */
+  __HAL_RCC_GPIOC_CLK_ENABLE();
   __HAL_RCC_GPIOD_CLK_ENABLE();
   __HAL_RCC_GPIOA_CLK_ENABLE();
   __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(OUT_OF_AMMO_GPIO_Port, OUT_OF_AMMO_Pin, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(LASER_GPIO_Port, LASER_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOB, VIBRATION_MOTOR_Pin|SPEAKER_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(VIBRATION_MOTOR_GPIO_Port, VIBRATION_MOTOR_Pin, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin : OUT_OF_AMMO_Pin */
+  GPIO_InitStruct.Pin = OUT_OF_AMMO_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_PULLDOWN;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(OUT_OF_AMMO_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pin : LASER_Pin */
   GPIO_InitStruct.Pin = LASER_Pin;
@@ -418,8 +494,8 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(LASER_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : MODE_TRIGGER_Pin LASER_TRIGGER_Pin */
-  GPIO_InitStruct.Pin = MODE_TRIGGER_Pin|LASER_TRIGGER_Pin;
+  /*Configure GPIO pins : MODE_TRIGGER_Pin LASER_TRIGGER_Pin RELOAD_TRIGGER_Pin */
+  GPIO_InitStruct.Pin = MODE_TRIGGER_Pin|LASER_TRIGGER_Pin|RELOAD_TRIGGER_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
   GPIO_InitStruct.Pull = GPIO_PULLDOWN;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
@@ -430,13 +506,6 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_PULLUP;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(VIBRATION_MOTOR_GPIO_Port, &GPIO_InitStruct);
-
-  /*Configure GPIO pin : SPEAKER_Pin */
-  GPIO_InitStruct.Pin = SPEAKER_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-  GPIO_InitStruct.Pull = GPIO_PULLDOWN;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(SPEAKER_GPIO_Port, &GPIO_InitStruct);
 
   /* EXTI interrupt init*/
   HAL_NVIC_SetPriority(EXTI15_10_IRQn, 0, 0);
