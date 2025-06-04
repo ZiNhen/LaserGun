@@ -55,22 +55,41 @@ void HAL_TIM_MspPostInit(TIM_HandleTypeDef *htim);
 void Error_Handler(void);
 
 /* USER CODE BEGIN EFP */
+void ReloadMessage();
 
+void ReloadingMessage();
+
+void ModeDisplay();
+
+void BulletsDisplay();
+
+void OutOfAmmoEvent();
+
+//Kich hoat am thanh
+void PlaySound(const uint8_t audio_data[],const uint32_t audio_length);
+
+//Ham delay bang timer 1
+void Timer_Delay_ms(uint16_t ms);
+
+void StartVibrate(int ms);
+
+void StartCounting(int ms);
+
+//Ham tao rung
+void vibrate(int ms);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
-#define OUT_OF_AMMO_Pin GPIO_PIN_13
-#define OUT_OF_AMMO_GPIO_Port GPIOC
 #define LASER_Pin GPIO_PIN_1
 #define LASER_GPIO_Port GPIOA
+#define VIBRATION_MOTOR_Pin GPIO_PIN_2
+#define VIBRATION_MOTOR_GPIO_Port GPIOA
 #define MODE_TRIGGER_Pin GPIO_PIN_12
 #define MODE_TRIGGER_GPIO_Port GPIOB
 #define MODE_TRIGGER_EXTI_IRQn EXTI15_10_IRQn
 #define LASER_TRIGGER_Pin GPIO_PIN_13
 #define LASER_TRIGGER_GPIO_Port GPIOB
 #define LASER_TRIGGER_EXTI_IRQn EXTI15_10_IRQn
-#define VIBRATION_MOTOR_Pin GPIO_PIN_14
-#define VIBRATION_MOTOR_GPIO_Port GPIOB
 #define RELOAD_TRIGGER_Pin GPIO_PIN_15
 #define RELOAD_TRIGGER_GPIO_Port GPIOB
 #define RELOAD_TRIGGER_EXTI_IRQn EXTI15_10_IRQn

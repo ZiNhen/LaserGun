@@ -76,6 +76,9 @@ default.size.stdout \
 OBJDUMP_LIST += \
 LaserGun.list \
 
+OBJCOPY_HEX += \
+LaserGun.hex \
+
 
 # All Target
 all: main-build
@@ -99,12 +102,17 @@ LaserGun.list: $(EXECUTABLES) makefile objects.list $(OPTIONAL_TOOL_DEPS)
 	@echo 'Finished building: $@'
 	@echo ' '
 
+LaserGun.hex: $(EXECUTABLES) makefile objects.list $(OPTIONAL_TOOL_DEPS)
+	arm-none-eabi-objcopy  -O ihex $(EXECUTABLES) "LaserGun.hex"
+	@echo 'Finished building: $@'
+	@echo ' '
+
 # Other Targets
 clean:
-	-$(RM) LaserGun.elf LaserGun.list LaserGun.map default.size.stdout
+	-$(RM) LaserGun.elf LaserGun.hex LaserGun.list LaserGun.map default.size.stdout
 	-@echo ' '
 
-secondary-outputs: $(SIZE_OUTPUT) $(OBJDUMP_LIST)
+secondary-outputs: $(SIZE_OUTPUT) $(OBJDUMP_LIST) $(OBJCOPY_HEX)
 
 fail-specified-linker-script-missing:
 	@echo 'Error: Cannot find the specified linker script. Check the linker settings in the build configuration.'

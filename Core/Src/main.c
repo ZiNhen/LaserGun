@@ -22,7 +22,10 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "sound.h"
-#include <stdbool.h>
+#include "stdbool.h"
+#include "ssd1306_fonts.h"
+#include "ssd1306.h"
+#include "string.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -32,7 +35,7 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-
+#define DEBOUNCE_DELAY_MS 200
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -46,12 +49,16 @@ I2C_HandleTypeDef hi2c2;
 TIM_HandleTypeDef htim1;
 TIM_HandleTypeDef htim2;
 TIM_HandleTypeDef htim3;
+TIM_HandleTypeDef htim4;
 DMA_HandleTypeDef hdma_tim3_ch4_up;
 
 /* USER CODE BEGIN PV */
 int mode = 0;
 int bullets = 30;
 bool out_of_ammo = false;
+bool reloading = false;
+uint32_t last_button_press_time = 0;
+char *modes[3] = {"Mode: Single Shot", "Mode: Auto", "Mode: Burst"};
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -62,18 +69,110 @@ static void MX_TIM1_Init(void);
 static void MX_TIM2_Init(void);
 static void MX_TIM3_Init(void);
 static void MX_I2C2_Init(void);
+static void MX_TIM4_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+void ReloadMessage(){
+	ssd1306_Fill(Black);
+	ssd1306_SetCursor(16, 19);
+	ssd1306_WriteString("RELOAD", Font_16x26, White);
+	ssd1306_UpdateScreen();
+}
+
+void ReloadingMessage(){
+	ssd1306_Fill(Black);
+	ssd1306_SetCursor(14, 23);
+	ssd1306_WriteString("RELOADING", Font_11x18, White);
+	ssd1306_UpdateScreen();
+}
+
+void ModeDisplay(){
+	ssd1306_SetCursor(2, 8);
+	ssd1306_WriteString("                    ", Font_7x10, White);
+	ssd1306_SetCursor(2, 8);
+	ssd1306_WriteString(modes[mode], Font_7x10, White);
+	ssd1306_UpdateScreen();
+}
+
+void BulletsDisplay(){
+	  ssd1306_SetCursor(24, 32);
+	  ssd1306_WriteChar((bullets / 10) + 48, Font_16x26, White);
+	  ssd1306_WriteChar((bullets % 10) + 48, Font_16x26, White);
+	  ssd1306_WriteString("/30", Font_16x26, White);
+	  ssd1306_UpdateScreen();
+}
+
+void OutOfAmmoEvent(){
+	  if (reloading) return;
+	  StartCounting(1000);
+	  if (out_of_ammo){
+		  HAL_GPIO_WritePin(VIBRATION_MOTOR_GPIO_Port, VIBRATION_MOTOR_Pin, 1);
+		  PlaySound(out_of_ammo_sound, out_of_ammo_sound_length);
+		  ReloadMessage();
+	  }
+	  else{
+		  reloading = true;
+		  PlaySound(reload_sound, reload_sound_length);
+		  ReloadingMessage();
+	  }
+}
+
 //Kich hoat am thanh
 void PlaySound(const uint8_t audio_data[],const uint32_t audio_length)
 {
 	HAL_DMA_Abort_IT(&hdma_tim3_ch4_up);
 	HAL_DMA_Start_IT(&hdma_tim3_ch4_up,(uint32_t)(audio_data+44),(uint32_t)&(TIM2->CCR1), audio_length);
 	HAL_TIM_Base_Start(&htim3);
+}
+
+//Ham delay bang timer 4
+void Timer_Delay_ms(uint16_t ms){
+    __HAL_TIM_SET_COUNTER(&htim4, 0);
+    __HAL_TIM_SET_AUTORELOAD(&htim4, ms);// Reset counter
+    HAL_TIM_Base_Start(&htim4);        // Bắt đầu timer
+    while (__HAL_TIM_GET_COUNTER(&htim4) < ms);
+    HAL_TIM_Base_Stop(&htim4);         // Dừng timer sau khi xong
+}
+
+void StartVibrate(int ms){
+	  HAL_GPIO_WritePin(VIBRATION_MOTOR_GPIO_Port, VIBRATION_MOTOR_Pin, 1);
+	  __HAL_TIM_CLEAR_FLAG(&htim1, TIM_FLAG_UPDATE);
+	__HAL_TIM_SET_COUNTER(&htim1, 0);
+    __HAL_TIM_SET_AUTORELOAD(&htim1, ms);// Reset counter
+    HAL_TIM_Base_Start_IT(&htim1);
+}
+
+void StartCounting(int ms){
+		__HAL_TIM_CLEAR_FLAG(&htim1, TIM_FLAG_UPDATE);
+		__HAL_TIM_SET_COUNTER(&htim1, 0);
+		__HAL_TIM_SET_AUTORELOAD(&htim1, ms);// Reset counter
+		HAL_TIM_Base_Start_IT(&htim1);
+}
+
+//Ham tao rung
+void vibrate(int ms){
+	  HAL_GPIO_WritePin(VIBRATION_MOTOR_GPIO_Port, VIBRATION_MOTOR_Pin, 1);
+	  Timer_Delay_ms(ms);
+	  HAL_GPIO_WritePin(VIBRATION_MOTOR_GPIO_Port, VIBRATION_MOTOR_Pin, 0);
+}
+
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+{
+    if(htim->Instance == TIM1)
+    {
+    	  ssd1306_Fill(Black);
+		  ModeDisplay();
+		  BulletsDisplay();
+      if (!out_of_ammo){
+		  HAL_GPIO_WritePin(VIBRATION_MOTOR_GPIO_Port, VIBRATION_MOTOR_Pin, 0);
+    	  reloading = false;
+      }
+      HAL_TIM_Base_Stop_IT(htim);
+    }
 }
 
 //Ham ngat khi hoan tat truyen du lieu qua DMA
@@ -85,49 +184,45 @@ void HAL_DMA_ConvCpltCallback(DMA_HandleTypeDef *hdma)
     }
 }
 
-//Ham delay bang timer 1
-void Timer_Delay_ms(uint16_t ms) {
-    __HAL_TIM_SET_COUNTER(&htim1, 0);
-    __HAL_TIM_SET_AUTORELOAD(&htim1, ms);// Reset counter
-    HAL_TIM_Base_Start(&htim1);        // Bắt đầu timer
-    while (__HAL_TIM_GET_COUNTER(&htim1) < ms);
-    HAL_TIM_Base_Stop(&htim1);         // Dừng timer sau khi xong
-}
-
-//Ham tao rung
-void vibrate(int ms){
-	  HAL_GPIO_TogglePin(VIBRATION_MOTOR_GPIO_Port, VIBRATION_MOTOR_Pin);
-	  Timer_Delay_ms(ms);
-	  HAL_GPIO_TogglePin(VIBRATION_MOTOR_GPIO_Port, VIBRATION_MOTOR_Pin);
-}
-
 //Ham ngat khi nhan nut
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
+	uint32_t now = HAL_GetTick();
+
+	    if (now - last_button_press_time < DEBOUNCE_DELAY_MS) {
+	        return;
+	    }
+
+	    last_button_press_time = now;
+	if (reloading) return;
 	if (GPIO_Pin == LASER_TRIGGER_Pin){
 		if(!out_of_ammo){
 			switch (mode){
 			  case 0:
 				  HAL_GPIO_TogglePin(LASER_GPIO_Port, LASER_Pin);
-				  PlaySound(shoot_sound, shoot_sound_length);
 				  vibrate(50);
+				  PlaySound(shoot_sound, shoot_sound_length);
 				  HAL_GPIO_TogglePin(LASER_GPIO_Port, LASER_Pin);
-				  if (--bullets == 0){
+				  bullets--;
+				  BulletsDisplay();
+				  if (bullets == 0){
 					  out_of_ammo = true;
-					  HAL_GPIO_TogglePin(OUT_OF_AMMO_GPIO_Port, OUT_OF_AMMO_Pin);
+					  OutOfAmmoEvent();
 				  }
 				  break;
 			  case 1:
 				  //Mode 2: auto shot
 				  while(HAL_GPIO_ReadPin(LASER_TRIGGER_GPIO_Port, LASER_TRIGGER_Pin) == 1){
 					  HAL_GPIO_TogglePin(LASER_GPIO_Port, LASER_Pin);
-					  PlaySound(shoot_sound, shoot_sound_length);
 					  vibrate(50);
+					  PlaySound(shoot_sound, shoot_sound_length);
 					  HAL_GPIO_TogglePin(LASER_GPIO_Port, LASER_Pin);
 					  Timer_Delay_ms(50);
-					  if (--bullets == 0){
+					  bullets--;
+					  BulletsDisplay();
+					  if (bullets == 0){
 						  out_of_ammo = true;
-						  HAL_GPIO_TogglePin(OUT_OF_AMMO_GPIO_Port, OUT_OF_AMMO_Pin);
+						  OutOfAmmoEvent();
 						  break;
 					  }
 				  }
@@ -136,31 +231,36 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 				  //Mode 3: burst
 				  for (int i = 0; i < 3; i++){
 					  HAL_GPIO_TogglePin(LASER_GPIO_Port, LASER_Pin);
-					  PlaySound(shoot_sound, shoot_sound_length);
 					  vibrate(50);
+					  PlaySound(shoot_sound, shoot_sound_length);
 					  HAL_GPIO_TogglePin(LASER_GPIO_Port, LASER_Pin);
 					  Timer_Delay_ms(50);
-					  if (--bullets == 0){
+					  bullets--;
+					  BulletsDisplay();
+					  if (bullets == 0){
 						  out_of_ammo = true;
-						  HAL_GPIO_TogglePin(OUT_OF_AMMO_GPIO_Port, OUT_OF_AMMO_Pin);
+						  OutOfAmmoEvent();
 						  break;
 					  }
 				  }
 			}
 		}
-
+		else{
+			  OutOfAmmoEvent();
+		}
 	}
 	else if (GPIO_Pin == MODE_TRIGGER_Pin){
 		  mode++;
 		  if (mode > 2) mode = 0;
+		  PlaySound(switch_sound, switch_sound_length);
+		  ModeDisplay();
 	}
 	else if (GPIO_Pin == RELOAD_TRIGGER_Pin){
-		if (out_of_ammo){
+
+		if (bullets < 30){
 			bullets = 30;
-			HAL_GPIO_TogglePin(OUT_OF_AMMO_GPIO_Port, OUT_OF_AMMO_Pin);
 			out_of_ammo = false;
-			PlaySound(reload_sound, reload_sound_length);
-			vibrate(1000);
+			OutOfAmmoEvent();
 		}
 	}
 	else{
@@ -202,8 +302,12 @@ int main(void)
   MX_TIM2_Init();
   MX_TIM3_Init();
   MX_I2C2_Init();
+  MX_TIM4_Init();
   /* USER CODE BEGIN 2 */
-
+  ssd1306_Init();
+  ssd1306_Fill(Black);
+  ModeDisplay();
+  BulletsDisplay();
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -439,6 +543,51 @@ static void MX_TIM3_Init(void)
 }
 
 /**
+  * @brief TIM4 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM4_Init(void)
+{
+
+  /* USER CODE BEGIN TIM4_Init 0 */
+
+  /* USER CODE END TIM4_Init 0 */
+
+  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+  /* USER CODE BEGIN TIM4_Init 1 */
+
+  /* USER CODE END TIM4_Init 1 */
+  htim4.Instance = TIM4;
+  htim4.Init.Prescaler = 7999;
+  htim4.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim4.Init.Period = 999;
+  htim4.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim4.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim4) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  if (HAL_TIM_ConfigClockSource(&htim4, &sClockSourceConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim4, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM4_Init 2 */
+
+  /* USER CODE END TIM4_Init 2 */
+
+}
+
+/**
   * Enable DMA controller clock
   */
 static void MX_DMA_Init(void)
@@ -466,46 +615,25 @@ static void MX_GPIO_Init(void)
 /* USER CODE END MX_GPIO_Init_1 */
 
   /* GPIO Ports Clock Enable */
-  __HAL_RCC_GPIOC_CLK_ENABLE();
   __HAL_RCC_GPIOD_CLK_ENABLE();
   __HAL_RCC_GPIOA_CLK_ENABLE();
   __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(OUT_OF_AMMO_GPIO_Port, OUT_OF_AMMO_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOA, LASER_Pin|VIBRATION_MOTOR_Pin, GPIO_PIN_RESET);
 
-  /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(LASER_GPIO_Port, LASER_Pin, GPIO_PIN_RESET);
-
-  /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(VIBRATION_MOTOR_GPIO_Port, VIBRATION_MOTOR_Pin, GPIO_PIN_RESET);
-
-  /*Configure GPIO pin : OUT_OF_AMMO_Pin */
-  GPIO_InitStruct.Pin = OUT_OF_AMMO_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-  GPIO_InitStruct.Pull = GPIO_PULLDOWN;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(OUT_OF_AMMO_GPIO_Port, &GPIO_InitStruct);
-
-  /*Configure GPIO pin : LASER_Pin */
-  GPIO_InitStruct.Pin = LASER_Pin;
+  /*Configure GPIO pins : LASER_Pin VIBRATION_MOTOR_Pin */
+  GPIO_InitStruct.Pin = LASER_Pin|VIBRATION_MOTOR_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(LASER_GPIO_Port, &GPIO_InitStruct);
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
   /*Configure GPIO pins : MODE_TRIGGER_Pin LASER_TRIGGER_Pin RELOAD_TRIGGER_Pin */
   GPIO_InitStruct.Pin = MODE_TRIGGER_Pin|LASER_TRIGGER_Pin|RELOAD_TRIGGER_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
   GPIO_InitStruct.Pull = GPIO_PULLDOWN;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
-
-  /*Configure GPIO pin : VIBRATION_MOTOR_Pin */
-  GPIO_InitStruct.Pin = VIBRATION_MOTOR_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-  GPIO_InitStruct.Pull = GPIO_PULLUP;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(VIBRATION_MOTOR_GPIO_Port, &GPIO_InitStruct);
 
   /* EXTI interrupt init*/
   HAL_NVIC_SetPriority(EXTI15_10_IRQn, 0, 0);
