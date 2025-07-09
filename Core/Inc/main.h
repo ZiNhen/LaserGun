@@ -82,8 +82,6 @@ void vibrate(int ms);
 /* Private defines -----------------------------------------------------------*/
 #define LASER_Pin GPIO_PIN_1
 #define LASER_GPIO_Port GPIOA
-#define VIBRATION_MOTOR_Pin GPIO_PIN_2
-#define VIBRATION_MOTOR_GPIO_Port GPIOA
 #define MODE_TRIGGER_Pin GPIO_PIN_12
 #define MODE_TRIGGER_GPIO_Port GPIOB
 #define MODE_TRIGGER_EXTI_IRQn EXTI15_10_IRQn
@@ -93,6 +91,8 @@ void vibrate(int ms);
 #define RELOAD_TRIGGER_Pin GPIO_PIN_15
 #define RELOAD_TRIGGER_GPIO_Port GPIOB
 #define RELOAD_TRIGGER_EXTI_IRQn EXTI15_10_IRQn
+#define VIBRATION_MOTOR_Pin GPIO_PIN_9
+#define VIBRATION_MOTOR_GPIO_Port GPIOA
 #define SPEAKER_Pin GPIO_PIN_15
 #define SPEAKER_GPIO_Port GPIOA
 
