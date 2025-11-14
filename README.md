@@ -5,7 +5,7 @@
 ![Language](https://img.shields.io/badge/language-C%20(HAL%2FLL)-blue)
 
 ## Overview
-A real-time laser shooting simulation system built on the **STM32F103C8t6** microcontroller.  
+A real-time laser shooting simulation system built on the **STM32F103C8T6** microcontroller.  
 The system supports multiple firing modes and integrates an OLED display, vibration motor, and sound module.  
 All firing logic is controlled using **EXTI interrupts**, **timers**, and a **finite state machine (FSM)** to ensure precision and stability.
 
