@@ -23,22 +23,23 @@ All firing logic is controlled using **EXTI interrupts**, **timers**, and a **fi
 
 ## Tech Stack
 - **MCU:** STM32F103C8T6 (ARM Cortex-M3)  
-- **Language: ** C (HAL/LL)  
-- **Peripherals:
-  + ** Module Laser KY-008 650nm
-  + ** Speaker0.5W 8 Ohm 40mm
-  + ** Solenoid JF-0730B 12VDC 1A
-  + ** LCD OLED SSD1306 0.96 inch 128x64
-  + ** Button
-  + ** MOSFET IRLZ44N
-  + ** Diode 1N5408
+- **Language**: C (HAL/LL)  
+- **Peripherals**:
+  + Module Laser KY-008 650nm
+  + Speaker0.5W 8 Ohm 40mm
+  + Solenoid JF-0730B 12VDC 1A
+  + LCD OLED SSD1306 0.96 inch 128x64
+  + Button
+  + MOSFET IRLZ44N
+  + Diode 1N5408
 - **Tools:** STM32CubeIDE, ST-Link, Git, multimeter  
 
 ## Installation / Setup
-**Connection diagram
+**Connection Diagram*
 <img width="639" height="344" alt="Screenshot (3)" src="https://github.com/user-attachments/assets/027bcd22-4f1e-4889-ab1f-0b3a608c1db9" />
 
-1. Clone repo
-2. Open the project in STM32CubeIDE
-3. Build the project
-4. Flash to board using ST-Link
+1. Connect 12V/1A power supply to board.
+2. Clone repo
+3. Open the project in STM32CubeIDE
+4. Build the project
+5. Flash to board using ST-Link
