@@ -36,6 +36,7 @@ All firing logic is controlled using **EXTI interrupts**, **timers**, and a **fi
 
 ## Installation / Setup
 <img width="639" height="344" alt="Screenshot (3)" src="https://github.com/user-attachments/assets/027bcd22-4f1e-4889-ab1f-0b3a608c1db9" />
+
 1. Connect 12V/1A power supply to board.
 2. Clone repo
 3. Open the project in STM32CubeIDE
