@@ -18,7 +18,7 @@ All firing logic is managed using **EXTI interrupts**, **timers**, and a **finit
 - SSD1306 OLED display for UI  
 - FSM-based firing logic  
 - Modular and easy-to-extend firmware architecture  
-
+[Click here to watch demo video]()
 ---
 
 ## Tech Stack
